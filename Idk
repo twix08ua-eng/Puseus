@@ -1,0 +1,806 @@
+-- ==========================================================
+--  Pyseus — custom cheat panel
+-- ==========================================================
+local Players = game:GetService("Players")
+local UIS     = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService   = game:GetService("RunService")
+local player  = Players.LocalPlayer
+
+-- ==========================================================
+--  Папки
+-- ==========================================================
+local FOLDER          = "Pyseus"
+local SCRIPTS_FOLDER  = FOLDER .. "/Scripts"
+if not isfolder(FOLDER)         then makefolder(FOLDER)         end
+if not isfolder(SCRIPTS_FOLDER) then makefolder(SCRIPTS_FOLDER) end
+
+-- ==========================================================
+--  Удаляем старую версию
+-- ==========================================================
+pcall(function()
+    local old = game.CoreGui:FindFirstChild("PyseusGui")
+    if old then old:Destroy() end
+end)
+pcall(function()
+    local old = player.PlayerGui:FindFirstChild("PyseusGui")
+    if old then old:Destroy() end
+end)
+
+-- ==========================================================
+--  ScreenGui
+-- ==========================================================
+local gui = Instance.new("ScreenGui")
+gui.Name             = "PyseusGui"
+gui.ResetOnSpawn     = false
+gui.ZIndexBehavior   = Enum.ZIndexBehavior.Global
+gui.IgnoreGuiInset   = true
+gui.DisplayOrder     = 999
+local ok = pcall(function() gui.Parent = game.CoreGui end)
+if not ok then gui.Parent = player:WaitForChild("PlayerGui") end
+
+local function corner(obj, r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r or 6)
+    c.Parent = obj
+    return c
+end
+
+local function setStatus(text, color)
+    if _G.__PyseusStatus then
+        _G.__PyseusStatus.TextColor3 = color or Color3.fromRGB(150, 200, 150)
+        _G.__PyseusStatus.Text = text
+    end
+end
+
+-- ==========================================================
+--  Круглая кнопка — УЛУЧШЕННАЯ
+-- ==========================================================
+local BTN_SIZE = 90
+
+-- Контейнер-обёртка (чтобы тень не обрезалась)
+local btnHolder = Instance.new("Frame")
+btnHolder.Name              = "BtnHolder"
+btnHolder.Size              = UDim2.new(0, BTN_SIZE + 40, 0, BTN_SIZE + 40)
+btnHolder.Position          = UDim2.new(0, 80, 0.5, -65)
+btnHolder.BackgroundTransparency = 1
+btnHolder.ZIndex            = 49
+btnHolder.Parent            = gui
+
+-- Внешнее мягкое свечение (большой полупрозрачный круг)
+local glow = Instance.new("Frame")
+glow.Name                   = "Glow"
+glow.Size                   = UDim2.new(0, BTN_SIZE + 32, 0, BTN_SIZE + 32)
+glow.Position               = UDim2.new(0.5, 0, 0.5, 0)
+glow.AnchorPoint            = Vector2.new(0.5, 0.5)
+glow.BackgroundColor3       = Color3.fromRGB(100, 150, 255)
+glow.BackgroundTransparency = 0.75
+glow.BorderSizePixel        = 0
+glow.ZIndex                 = 49
+glow.Parent                 = btnHolder
+corner(glow, (BTN_SIZE + 32) / 2)
+
+-- Тень под кнопкой (offset вниз)
+local shadow = Instance.new("Frame")
+shadow.Name                   = "Shadow"
+shadow.Size                   = UDim2.new(0, BTN_SIZE, 0, BTN_SIZE)
+shadow.Position               = UDim2.new(0.5, 0, 0.5, 5)
+shadow.AnchorPoint            = Vector2.new(0.5, 0.5)
+shadow.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
+shadow.BackgroundTransparency = 0.55
+shadow.BorderSizePixel        = 0
+shadow.ZIndex                 = 50
+shadow.Parent                 = btnHolder
+corner(shadow, BTN_SIZE / 2)
+
+-- Основная кнопка
+local button = Instance.new("TextButton")
+button.Name              = "OpenButton"
+button.Size              = UDim2.new(0, BTN_SIZE, 0, BTN_SIZE)
+button.Position          = UDim2.new(0.5, 0, 0.5, 0)
+button.AnchorPoint       = Vector2.new(0.5, 0.5)
+button.BackgroundColor3  = Color3.fromRGB(25, 25, 38)
+button.BorderSizePixel   = 0
+button.Text              = ""
+button.AutoButtonColor   = false
+button.ClipsDescendants  = true
+button.ZIndex            = 51
+button.Parent            = btnHolder
+corner(button, BTN_SIZE / 2)
+
+-- Градиентный фон (тёмно-синий → тёмный)
+local bGradient = Instance.new("UIGradient")
+bGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(45, 60, 110)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(25, 25, 40)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(60, 40, 100)),
+}
+bGradient.Rotation = 135
+bGradient.Parent = button
+
+-- Внешняя обводка (UIStroke) — яркая
+local strokeOuter = Instance.new("UIStroke")
+strokeOuter.Color        = Color3.fromRGB(120, 170, 255)
+strokeOuter.Thickness    = 3
+strokeOuter.Transparency = 0.15
+strokeOuter.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+strokeOuter.Parent       = button
+
+-- Внутренний контур (UIStroke) — тонкий, светлый
+local strokeInner = Instance.new("UIStroke")
+strokeInner.Color        = Color3.fromRGB(220, 230, 255)
+strokeInner.Thickness    = 1
+strokeInner.Transparency = 0.55
+strokeInner.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+strokeInner.Parent       = button
+
+-- Отдельная обводка для свечения (толстая, полупрозрачная)
+local strokeGlow = Instance.new("UIStroke")
+strokeGlow.Color        = Color3.fromRGB(100, 150, 255)
+strokeGlow.Thickness    = 6
+strokeGlow.Transparency = 0.85
+strokeGlow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+strokeGlow.Parent       = glow
+
+-- Иконка
+local bImg = Instance.new("ImageLabel")
+bImg.Name              = "Icon"
+bImg.Size              = UDim2.new(0.62, 0, 0.62, 0)
+bImg.Position          = UDim2.new(0.5, 0, 0.5, 0)
+bImg.AnchorPoint       = Vector2.new(0.5, 0.5)
+bImg.BackgroundTransparency = 1
+bImg.Image             = "rbxassetid://116594702480635"
+bImg.ScaleType         = Enum.ScaleType.Fit
+bImg.ZIndex            = 52
+bImg.Parent            = button
+
+-- ==========================================================
+--  Анимации кнопки: idle-пульсация + hover + click
+-- ==========================================================
+local baseIconSize = UDim2.new(0.62, 0, 0.62, 0)
+local hovered = false
+
+-- Idle-пульсация свечения
+task.spawn(function()
+    local t = 0
+    while button.Parent do
+        t += 0.04
+        local pulse = (math.sin(t) + 1) / 2 -- 0..1
+        strokeGlow.Transparency = 0.9 - pulse * 0.25
+        glow.BackgroundTransparency = 0.82 - pulse * 0.15
+        RunService.RenderStepped:Wait()
+    end
+end)
+
+-- Hover
+button.MouseEnter:Connect(function()
+    hovered = true
+    TweenService:Create(strokeOuter, TweenInfo.new(0.2), {
+        Color = Color3.fromRGB(160, 200, 255),
+        Thickness = 3.5,
+        Transparency = 0.05,
+    }):Play()
+    TweenService:Create(bImg, TweenInfo.new(0.2), {
+        Size = UDim2.new(0.7, 0, 0.7, 0),
+    }):Play()
+end)
+
+button.MouseLeave:Connect(function()
+    hovered = false
+    TweenService:Create(strokeOuter, TweenInfo.new(0.2), {
+        Color = Color3.fromRGB(120, 170, 255),
+        Thickness = 3,
+        Transparency = 0.15,
+    }):Play()
+    TweenService:Create(bImg, TweenInfo.new(0.2), {
+        Size = baseIconSize,
+    }):Play()
+end)
+
+-- Нажатие — «отскок» масштаба
+local function pressAnim()
+    local shrink = TweenService:Create(button, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, BTN_SIZE * 0.9, 0, BTN_SIZE * 0.9),
+    })
+    shrink:Play()
+    shrink.Completed:Wait()
+    TweenService:Create(button, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, BTN_SIZE, 0, BTN_SIZE),
+    }):Play()
+end
+
+-- ==========================================================
+--  Панель
+-- ==========================================================
+local panel = Instance.new("Frame")
+panel.Name              = "Panel"
+panel.Size              = UDim2.new(0, 520, 0, 420)
+panel.Position          = UDim2.new(0.5, -260, 0.5, -210)
+panel.BackgroundColor3  = Color3.fromRGB(22, 22, 32)
+panel.BorderSizePixel   = 0
+panel.Visible           = false
+panel.ZIndex            = 10
+panel.Parent            = gui
+corner(panel, 12)
+
+local pStroke = Instance.new("UIStroke")
+pStroke.Color        = Color3.fromRGB(100, 150, 255)
+pStroke.Thickness    = 1.5
+pStroke.Transparency = 0.5
+pStroke.Parent       = panel
+
+-- Заголовок
+local header = Instance.new("Frame")
+header.Size             = UDim2.new(1, 0, 0, 40)
+header.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+header.BorderSizePixel  = 0
+header.ZIndex           = 11
+header.Parent           = panel
+corner(header, 12)
+
+local headerBottom = Instance.new("Frame")
+headerBottom.Size             = UDim2.new(1, 0, 0, 12)
+headerBottom.Position         = UDim2.new(0, 0, 1, -12)
+headerBottom.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+headerBottom.BorderSizePixel  = 0
+headerBottom.ZIndex           = 11
+headerBottom.Parent           = header
+
+local title = Instance.new("TextLabel")
+title.Size             = UDim2.new(1, -50, 1, 0)
+title.Position         = UDim2.new(0, 15, 0, 0)
+title.BackgroundTransparency = 1
+title.Text             = "⚡ Pyseus"
+title.TextColor3       = Color3.fromRGB(220, 220, 255)
+title.TextXAlignment   = Enum.TextXAlignment.Left
+title.Font             = Enum.Font.GothamBold
+title.TextSize         = 16
+title.ZIndex           = 12
+title.Parent           = header
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size             = UDim2.new(0, 30, 0, 30)
+closeBtn.Position         = UDim2.new(1, -38, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(220, 70, 70)
+closeBtn.Text             = "✕"
+closeBtn.TextColor3       = Color3.new(1, 1, 1)
+closeBtn.Font             = Enum.Font.GothamBold
+closeBtn.TextSize         = 16
+closeBtn.BorderSizePixel  = 0
+closeBtn.ZIndex           = 12
+closeBtn.Parent           = header
+corner(closeBtn, 6)
+
+-- Вкладки
+local tabsBar = Instance.new("Frame")
+tabsBar.Size              = UDim2.new(1, -20, 0, 34)
+tabsBar.Position          = UDim2.new(0, 10, 0, 46)
+tabsBar.BackgroundTransparency = 1
+tabsBar.ZIndex            = 11
+tabsBar.Parent            = panel
+
+local function makeTab(text, x, w)
+    local t = Instance.new("TextButton")
+    t.Size             = UDim2.new(0, w, 1, 0)
+    t.Position         = UDim2.new(0, x, 0, 0)
+    t.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+    t.Text             = text
+    t.TextColor3       = Color3.fromRGB(200, 200, 220)
+    t.Font             = Enum.Font.Gotham
+    t.TextSize         = 13
+    t.BorderSizePixel  = 0
+    t.ZIndex           = 11
+    t.Parent           = tabsBar
+    corner(t, 6)
+    return t
+end
+
+local tabExec    = makeTab("📝 Исполнитель", 0,   164)
+local tabMove    = makeTab("🏃 Движение",    167, 164)
+local tabScripts = makeTab("💾 Скрипты",     334, 164)
+
+-- Контент
+local contentArea = Instance.new("Frame")
+contentArea.Size              = UDim2.new(1, -20, 1, -120)
+contentArea.Position          = UDim2.new(0, 10, 0, 86)
+contentArea.BackgroundTransparency = 1
+contentArea.ZIndex            = 11
+contentArea.Parent            = panel
+
+-- Глобальный статус
+local status = Instance.new("TextLabel")
+status.Size             = UDim2.new(1, -20, 0, 24)
+status.Position         = UDim2.new(0, 10, 1, -30)
+status.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+status.Text             = "Готово"
+status.TextColor3       = Color3.fromRGB(150, 200, 150)
+status.Font             = Enum.Font.Gotham
+status.TextSize         = 12
+status.TextXAlignment   = Enum.TextXAlignment.Left
+status.BorderSizePixel  = 0
+status.ZIndex           = 13
+status.Parent           = panel
+corner(status, 6)
+local sp = Instance.new("UIPadding")
+sp.PaddingLeft = UDim.new(0, 8)
+sp.Parent = status
+_G.__PyseusStatus = status
+
+-- ==========================================================
+--  Вкладка 1: Исполнитель
+-- ==========================================================
+local execFrame = Instance.new("Frame")
+execFrame.Size              = UDim2.new(1, 0, 1, 0)
+execFrame.BackgroundTransparency = 1
+execFrame.ZIndex            = 12
+execFrame.Parent            = contentArea
+
+local codeBox = Instance.new("TextBox")
+codeBox.Size             = UDim2.new(1, 0, 1, -80)
+codeBox.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+codeBox.TextColor3       = Color3.fromRGB(180, 220, 180)
+codeBox.PlaceholderText  = '-- Введите скрипт...\n-- Пример: loadstring(game:HttpGet("URL"))()'
+codeBox.PlaceholderColor3= Color3.fromRGB(100, 100, 130)
+codeBox.Text             = ""
+codeBox.TextXAlignment   = Enum.TextXAlignment.Left
+codeBox.TextYAlignment   = Enum.TextYAlignment.Top
+codeBox.MultiLine        = true
+codeBox.ClearTextOnFocus = false
+codeBox.TextSize         = 13
+codeBox.Font             = Enum.Font.Code
+codeBox.BorderSizePixel  = 0
+codeBox.ZIndex           = 12
+codeBox.Parent           = execFrame
+corner(codeBox, 6)
+
+local execBtn = Instance.new("TextButton")
+execBtn.Size             = UDim2.new(0.4, -5, 0, 32)
+execBtn.Position         = UDim2.new(0, 0, 1, -70)
+execBtn.BackgroundColor3 = Color3.fromRGB(80, 180, 100)
+execBtn.Text             = "▶ Выполнить"
+execBtn.TextColor3       = Color3.new(1,1,1)
+execBtn.Font             = Enum.Font.GothamBold
+execBtn.TextSize         = 14
+execBtn.BorderSizePixel  = 0
+execBtn.ZIndex           = 12
+execBtn.Parent           = execFrame
+corner(execBtn, 6)
+
+local clearBtn = Instance.new("TextButton")
+clearBtn.Size             = UDim2.new(0.3, -5, 0, 32)
+clearBtn.Position         = UDim2.new(0.4, 0, 1, -70)
+clearBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 60)
+clearBtn.Text             = "🗑 Очистить"
+clearBtn.TextColor3       = Color3.new(1,1,1)
+clearBtn.Font             = Enum.Font.GothamBold
+clearBtn.TextSize         = 13
+clearBtn.BorderSizePixel  = 0
+clearBtn.ZIndex           = 12
+clearBtn.Parent           = execFrame
+corner(clearBtn, 6)
+
+local saveFromExec = Instance.new("TextButton")
+saveFromExec.Size             = UDim2.new(0.3, -5, 0, 32)
+saveFromExec.Position         = UDim2.new(0.7, 5, 1, -70)
+saveFromExec.BackgroundColor3 = Color3.fromRGB(80, 150, 220)
+saveFromExec.Text             = "💾 Сохранить"
+saveFromExec.TextColor3       = Color3.new(1,1,1)
+saveFromExec.Font             = Enum.Font.GothamBold
+saveFromExec.TextSize         = 13
+saveFromExec.BorderSizePixel  = 0
+saveFromExec.ZIndex           = 12
+saveFromExec.Parent           = execFrame
+corner(saveFromExec, 6)
+
+local function executeCode(code)
+    if not code or code == "" then
+        setStatus("⚠ Пустой скрипт", Color3.fromRGB(255, 200, 100))
+        return
+    end
+    local fn, err = loadstring(code)
+    if not fn then
+        setStatus("❌ Ошибка компиляции: " .. tostring(err), Color3.fromRGB(255, 100, 100))
+        return
+    end
+    local ok2, r = pcall(fn)
+    if ok2 then
+        setStatus("✅ Выполнено успешно", Color3.fromRGB(120, 255, 120))
+    else
+        setStatus("❌ Ошибка: " .. tostring(r), Color3.fromRGB(255, 100, 100))
+    end
+end
+
+execBtn.MouseButton1Click:Connect(function() executeCode(codeBox.Text) end)
+clearBtn.MouseButton1Click:Connect(function() codeBox.Text = "" end)
+
+-- ==========================================================
+--  Вкладка 2: Движение
+-- ==========================================================
+local moveFrame = Instance.new("Frame")
+moveFrame.Size              = UDim2.new(1, 0, 1, 0)
+moveFrame.BackgroundTransparency = 1
+moveFrame.Visible           = false
+moveFrame.ZIndex            = 12
+moveFrame.Parent            = contentArea
+
+local function getHumanoid()
+    local ch = player.Character
+    if not ch then return nil end
+    return ch:FindFirstChildOfClass("Humanoid")
+end
+
+local function createSlider(parent, name, minV, maxV, defaultV, yPos, callback)
+    local fr = Instance.new("Frame")
+    fr.Size              = UDim2.new(1, 0, 0, 55)
+    fr.Position          = UDim2.new(0, 0, 0, yPos)
+    fr.BackgroundTransparency = 1
+    fr.ZIndex            = 12
+    fr.Parent            = parent
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size             = UDim2.new(1, 0, 0, 22)
+    lbl.BackgroundTransparency = 1
+    lbl.Text             = name .. ": " .. tostring(defaultV)
+    lbl.TextColor3       = Color3.fromRGB(220, 220, 240)
+    lbl.TextXAlignment   = Enum.TextXAlignment.Left
+    lbl.Font             = Enum.Font.Gotham
+    lbl.TextSize         = 14
+    lbl.ZIndex           = 13
+    lbl.Parent           = fr
+
+    local bar = Instance.new("Frame")
+    bar.Size             = UDim2.new(1, 0, 0, 18)
+    bar.Position         = UDim2.new(0, 0, 0, 28)
+    bar.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    bar.BorderSizePixel  = 0
+    bar.ZIndex           = 13
+    bar.Parent           = fr
+    corner(bar, 9)
+
+    local fill = Instance.new("Frame")
+    fill.Size             = UDim2.new(0, 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    fill.BorderSizePixel  = 0
+    fill.ZIndex           = 14
+    fill.Parent           = bar
+    corner(fill, 9)
+
+    local handle = Instance.new("Frame")
+    handle.Size             = UDim2.new(0, 14, 1, 0)
+    handle.Position         = UDim2.new(1, 0, 0, 0)
+    handle.AnchorPoint      = Vector2.new(0.5, 0)
+    handle.BackgroundColor3 = Color3.fromRGB(220, 230, 255)
+    handle.BorderSizePixel  = 0
+    handle.ZIndex           = 15
+    handle.Parent           = fill
+    corner(handle, 7)
+
+    local dragging = false
+    local function updateFromX(x)
+        local rel = math.clamp((x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+        local val = minV + (maxV - minV) * rel
+        fill.Size = UDim2.new(rel, 0, 1, 0)
+        lbl.Text  = name .. ": " .. string.format("%.1f", val)
+        callback(val)
+    end
+
+    bar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            updateFromX(input.Position.X)
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch) then
+            updateFromX(input.Position.X)
+        end
+    end)
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    local rel0 = (defaultV - minV) / (maxV - minV)
+    fill.Size = UDim2.new(rel0, 0, 1, 0)
+    return fr
+end
+
+createSlider(moveFrame, "WalkSpeed", 0, 500, 16,   0, function(v)
+    local h = getHumanoid(); if h then h.WalkSpeed = v end
+end)
+createSlider(moveFrame, "JumpPower", 0, 500, 50,  65, function(v)
+    local h = getHumanoid()
+    if h then h.UseJumpPower = true; h.JumpPower = v end
+end)
+createSlider(moveFrame, "Gravity",   0, 500, 196.2, 130, function(v)
+    workspace.Gravity = v
+end)
+
+-- ==========================================================
+--  Вкладка 3: Скрипты
+-- ==========================================================
+local scriptsFrame = Instance.new("Frame")
+scriptsFrame.Size              = UDim2.new(1, 0, 1, 0)
+scriptsFrame.BackgroundTransparency = 1
+scriptsFrame.Visible           = false
+scriptsFrame.ZIndex            = 12
+scriptsFrame.Parent            = contentArea
+
+local nameBox = Instance.new("TextBox")
+nameBox.Size             = UDim2.new(0.6, -5, 0, 32)
+nameBox.Position         = UDim2.new(0, 0, 0, 0)
+nameBox.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+nameBox.TextColor3       = Color3.fromRGB(220, 220, 240)
+nameBox.PlaceholderText  = "Имя скрипта..."
+nameBox.PlaceholderColor3= Color3.fromRGB(100, 100, 130)
+nameBox.Text             = ""
+nameBox.Font             = Enum.Font.Gotham
+nameBox.TextSize         = 13
+nameBox.BorderSizePixel  = 0
+nameBox.ZIndex           = 12
+nameBox.Parent           = scriptsFrame
+corner(nameBox, 6)
+
+local saveBtn = Instance.new("TextButton")
+saveBtn.Size             = UDim2.new(0.4, -5, 0, 32)
+saveBtn.Position         = UDim2.new(0.6, 5, 0, 0)
+saveBtn.BackgroundColor3 = Color3.fromRGB(80, 180, 100)
+saveBtn.Text             = "💾 Сохранить"
+saveBtn.TextColor3       = Color3.new(1,1,1)
+saveBtn.Font             = Enum.Font.GothamBold
+saveBtn.TextSize         = 13
+saveBtn.BorderSizePixel  = 0
+saveBtn.ZIndex           = 12
+saveBtn.Parent           = scriptsFrame
+corner(saveBtn, 6)
+
+local listScroll = Instance.new("ScrollingFrame")
+listScroll.Size              = UDim2.new(1, 0, 1, -45)
+listScroll.Position          = UDim2.new(0, 0, 0, 40)
+listScroll.BackgroundColor3  = Color3.fromRGB(15, 15, 22)
+listScroll.BorderSizePixel   = 0
+listScroll.ScrollBarThickness= 6
+listScroll.CanvasSize        = UDim2.new(0, 0, 0, 0)
+listScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+listScroll.ZIndex            = 12
+listScroll.Parent            = scriptsFrame
+corner(listScroll, 6)
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding    = UDim.new(0, 4)
+listLayout.SortOrder  = Enum.SortOrder.LayoutOrder
+listLayout.Parent     = listScroll
+
+local listPad = Instance.new("UIPadding")
+listPad.PaddingLeft  = UDim.new(0, 4)
+listPad.PaddingRight = UDim.new(0, 4)
+listPad.PaddingTop   = UDim.new(0, 4)
+listPad.Parent       = listScroll
+
+local setTab, refreshScripts
+
+local function sanitizeName(name)
+    return (name:gsub("[^%w_%-%.]", "_"))
+end
+
+local function saveScript()
+    local name = nameBox.Text
+    if name == "" then
+        setStatus("⚠ Введите имя скрипта", Color3.fromRGB(255, 200, 100))
+        return
+    end
+    if codeBox.Text == "" then
+        setStatus("⚠ Скрипт пустой", Color3.fromRGB(255, 200, 100))
+        return
+    end
+    local safe = sanitizeName(name)
+    local path = SCRIPTS_FOLDER .. "/" .. safe .. ".lua"
+    writefile(path, codeBox.Text)
+    writefile(SCRIPTS_FOLDER .. "/" .. safe .. ".name", name)
+    nameBox.Text = ""
+    setStatus("✅ Скрипт сохранён: " .. name, Color3.fromRGB(120, 255, 120))
+    refreshScripts()
+end
+
+function refreshScripts()
+    for _, child in ipairs(listScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+    local files = listfiles(SCRIPTS_FOLDER)
+    for _, filepath in ipairs(files) do
+        local fname = filepath:match("([^/\\]+)$")
+        if fname and fname:sub(-4) == ".lua" then
+            local baseName    = fname:sub(1, -5)
+            local displayName = baseName
+            local namePath    = SCRIPTS_FOLDER .. "/" .. baseName .. ".name"
+            if isfile(namePath) then
+                local ok2, n = pcall(readfile, namePath)
+                if ok2 and n and n ~= "" then displayName = n end
+            end
+
+            local item = Instance.new("Frame")
+            item.Size             = UDim2.new(1, -8, 0, 36)
+            item.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
+            item.BorderSizePixel  = 0
+            item.ZIndex           = 13
+            item.Parent           = listScroll
+            corner(item, 5)
+
+            local nameLbl = Instance.new("TextLabel")
+            nameLbl.Size             = UDim2.new(1, -140, 1, 0)
+            nameLbl.Position         = UDim2.new(0, 10, 0, 0)
+            nameLbl.BackgroundTransparency = 1
+            nameLbl.Text             = displayName
+            nameLbl.TextColor3       = Color3.fromRGB(220, 220, 240)
+            nameLbl.TextXAlignment   = Enum.TextXAlignment.Left
+            nameLbl.Font             = Enum.Font.Gotham
+            nameLbl.TextSize         = 13
+            nameLbl.TextTruncate     = Enum.TextTruncate.AtEnd
+            nameLbl.ZIndex           = 14
+            nameLbl.Parent           = item
+
+            local loadB = Instance.new("TextButton")
+            loadB.Size             = UDim2.new(0, 60, 1, -8)
+            loadB.Position         = UDim2.new(1, -130, 0, 4)
+            loadB.BackgroundColor3 = Color3.fromRGB(80, 150, 220)
+            loadB.Text             = "▶ Load"
+            loadB.TextColor3       = Color3.new(1,1,1)
+            loadB.Font             = Enum.Font.GothamBold
+            loadB.TextSize         = 12
+            loadB.BorderSizePixel  = 0
+            loadB.ZIndex           = 14
+            loadB.Parent           = item
+            corner(loadB, 5)
+
+            local delB = Instance.new("TextButton")
+            delB.Size             = UDim2.new(0, 60, 1, -8)
+            delB.Position         = UDim2.new(1, -65, 0, 4)
+            delB.BackgroundColor3 = Color3.fromRGB(220, 70, 70)
+            delB.Text             = "✕ Удал."
+            delB.TextColor3       = Color3.new(1,1,1)
+            delB.Font             = Enum.Font.GothamBold
+            delB.TextSize         = 12
+            delB.BorderSizePixel  = 0
+            delB.ZIndex           = 14
+            delB.Parent           = item
+            corner(delB, 5)
+
+            local filePath = SCRIPTS_FOLDER .. "/" .. baseName .. ".lua"
+
+            loadB.MouseButton1Click:Connect(function()
+                local ok2, contents = pcall(readfile, filePath)
+                if ok2 and contents then
+                    codeBox.Text = contents
+                    setTab("exec")
+                    setStatus("📝 Загружен: " .. displayName, Color3.fromRGB(150, 200, 255))
+                else
+                    setStatus("❌ Не удалось прочитать файл", Color3.fromRGB(255, 100, 100))
+                end
+            end)
+
+            delB.MouseButton1Click:Connect(function()
+                pcall(delfile, filePath)
+                local np = SCRIPTS_FOLDER .. "/" .. baseName .. ".name"
+                if isfile(np) then pcall(delfile, np) end
+                setStatus("🗑 Удалён: " .. displayName, Color3.fromRGB(255, 180, 180))
+                refreshScripts()
+            end)
+        end
+    end
+end
+
+saveBtn.MouseButton1Click:Connect(saveScript)
+saveFromExec.MouseButton1Click:Connect(saveScript)
+
+-- ==========================================================
+--  Переключение вкладок
+-- ==========================================================
+local tabs = {
+    exec    = {btn = tabExec,    frame = execFrame},
+    move    = {btn = tabMove,    frame = moveFrame},
+    scripts = {btn = tabScripts, frame = scriptsFrame},
+}
+
+function setTab(active)
+    for name, t in pairs(tabs) do
+        if name == active then
+            t.frame.Visible        = true
+            t.btn.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+            t.btn.TextColor3       = Color3.new(1,1,1)
+        else
+            t.frame.Visible        = false
+            t.btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+            t.btn.TextColor3       = Color3.fromRGB(200, 200, 220)
+        end
+    end
+end
+
+tabExec.MouseButton1Click:Connect(function() setTab("exec")    end)
+tabMove.MouseButton1Click:Connect(function() setTab("move")    end)
+tabScripts.MouseButton1Click:Connect(function() setTab("scripts") end)
+
+setTab("exec")
+refreshScripts()
+
+-- ==========================================================
+--  Drag: кнопка
+-- ==========================================================
+local btnStart, btnPos, btnDragging = nil, nil, false
+
+button.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        btnDragging = false
+        btnStart    = input.Position
+        btnPos      = btnHolder.Position
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if not btnStart then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - btnStart
+        if delta.Magnitude > 4 then
+            btnDragging = true
+            btnHolder.Position = UDim2.new(
+                btnPos.X.Scale, btnPos.X.Offset + delta.X,
+                btnPos.Y.Scale, btnPos.Y.Offset + delta.Y
+            )
+        end
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch) and btnStart then
+        if not btnDragging then
+            pressAnim()
+            panel.Visible = not panel.Visible
+        end
+        btnStart = nil
+        btnDragging = false
+    end
+end)
+
+-- ==========================================================
+--  Drag: панель
+-- ==========================================================
+local pDrag, pStart, pPos = false, nil, nil
+
+header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        pDrag  = true
+        pStart = input.Position
+        pPos   = panel.Position
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if pDrag and (input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - pStart
+        panel.Position = UDim2.new(
+            pPos.X.Scale, pPos.X.Offset + delta.X,
+            pPos.Y.Scale, pPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        pDrag = false
+    end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    panel.Visible = false
+end)
+
+setStatus("✅ Pyseus загружен", Color3.fromRGB(120, 255, 120))
